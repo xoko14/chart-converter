@@ -21,23 +21,23 @@ def main():
             # Check section
             if "[LANE]" in line:
                 current = "lane"
-                chart+="!Lane\n"
+                chart+="\n!Lane\n"
                 
             elif "[NOTES]" in line:
                 current = "notes"
-                chart+="!Note\n"
+                chart+="\n!Note\n"
                 
             elif "[FLICK]" in line:
                 current = "flick"
-                chart+="!Flick\n"
+                chart+="\n!Flick\n"
                 
             elif "[BELL]" in line:
                 current = "bell"
-                chart+="!Bell\n"
+                chart+="\n!Bell\n"
                 
             elif "[BULLET]" in line:
                 current = "bullet"
-                chart+="!Bullet\n"
+                chart+="\n!Bullet\n"
                 
             else:
                 lline = line.split()
