@@ -1,92 +1,116 @@
-import sys
+import os, sys
 
-def stype(type):
-    return type[0]+type[1]
+from xml.etree import ElementTree as ET
+
+from numpy import number
+
+from convert import convert
+
+import json
+
+import urllib.request as urlr
+
+from xml.dom import minidom
 
 def main():
-    file1 = open(sys.argv[1], 'r', encoding='utf-8')
-    lines = file1.readlines()
-    current = ""
-    chart = ""
+    opts = [opt for opt in sys.argv[1:] if opt.startswith("-")]
+    args = [arg for arg in sys.argv[1:] if not arg.startswith("-")]
     
-    for i, line in enumerate(lines):
-        sys.stdout.write(f"\rreading line {i+1}")
-        sys.stdout.flush()
-        
-        if(len(line)<2):
-            continue
-        
-        if not line[0]+line[1] == "//":
+    songs = []
+
+    for rootf, subdirectories, files in os.walk("./source/music"):
+        i = 0
+        for subdirectory in subdirectories:
+            folder = os.path.join(rootf, subdirectory)
+            with open(os.path.join(folder, "Music.xml"), encoding="utf-8") as file:
+                xml = file.read()
+            root = ET.fromstring(xml)
+
+            songname = root.find("Name").findtext("str")
+            artistname = root.find("ArtistName").findtext("str")
+
+            if "-t" in opts:
+                if songname.lower().find(args[0].lower()) != -1:
+                    print(str(i)+") "+root.findtext("dataName"))
+                    print("\t"+songname)
+                    print("\t"+artistname)
+                    songs.append(root.findtext("dataName"))
+                    i+=1
+            elif "-a" in opts:
+                if artistname.lower().find(args[0].lower()) != -1:
+                    print(str(i)+") "+root.findtext("dataName"))
+                    print("\t"+songname)
+                    print("\t"+artistname)
+                    songs.append(root.findtext("dataName"))
+                    i+=1
+                    
+    
+    if "-o" in opts:
+        finished = False
+        while not finished:
+            selection = input(">")
+            try:
+                selection = int(selection)
+            except:
+                print("Please, input a number")
+                continue
             
-            # Check section
-            if "[LANE]" in line:
-                current = "lane"
-                chart+="\n!Lane\n"
-                
-            elif "[NOTES]" in line:
-                current = "notes"
-                chart+="\n!Note\n"
-                
-            elif "[FLICK]" in line:
-                current = "flick"
-                chart+="\n!Flick\n"
-                
-            elif "[BELL]" in line:
-                current = "bell"
-                chart+="\n!Bell\n"
-                
-            elif "[BULLET]" in line:
-                current = "bullet"
-                chart+="\n!Bullet\n"
-                
+            if selection < len(songs):
+                finished = True
             else:
-                lline = line.split()
+                print("Please input a valid number")
+        
+        songfolder = songs[selection]
+        
+        folder = os.path.join("./source/music", songfolder)
+        
+        charter_e = convert(os.path.join(folder, f"{songfolder[5:]}_00.ogkr"), os.path.join(args[1], f"{songfolder}/song_e.chart"))
+        charter_n = convert(os.path.join(folder, f"{songfolder[5:]}_01.ogkr"), os.path.join(args[1], f"{songfolder}/song_n.chart"))
+        charter_h = convert(os.path.join(folder, f"{songfolder[5:]}_02.ogkr"), os.path.join(args[1], f"{songfolder}/song_h.chart"))
+
+
+        with open(os.path.join(folder, "Music.xml"), encoding="utf-8") as file:
+            xml = file.read()
+        
+        sxml = ET.fromstring(xml)
+            
+        song_name = sxml.find("Name").findtext("str")
+        song_artist = sxml.find("ArtistName").findtext("str")
+        song_sortname = sxml.findtext("NameForSort")
+        
+        chartroot = ET.Element("chart")
+        
+        ET.SubElement(chartroot, "title").text = song_name
+        ET.SubElement(chartroot, "artist").text = song_artist
+        ET.SubElement(chartroot, "easy", file="song_e.chart", charter=charter_e, difficulty="Easy")
+        ET.SubElement(chartroot, "normal", file="song_n.chart", charter=charter_n, difficulty="Normal")
+        ET.SubElement(chartroot, "hard", file="song_h.chart", charter=charter_h, difficulty="Hard")
+        ET.SubElement(chartroot, "music", file="song.wav")
+        ET.SubElement(chartroot, "jacket", file="jacket.png", artist="unknown")
+        
+        tree = ET.ElementTree(chartroot)
+        
+        if not os.path.isdir(args[1]): os.mkdir(args[1])
+        if not os.path.isdir(os.path.join(args[1], songfolder)): os.mkdir(os.path.join(args[1], songfolder))
+        xmlstr = minidom.parseString(ET.tostring(chartroot)).toprettyxml(indent="    ")
+        with open(os.path.join(args[1], f"{songfolder}/song.xml"), "w", encoding="utf-8") as f:
+            f.write(xmlstr)
+        # tree.write(os.path.join(args[1], f"{songfolder}/song.xml"), encoding="utf-8")
+        
+        os.system(f".\\vgmstream\\test.exe -o {os.path.join(args[1], f'{songfolder}/song.wav')} .\\source\\musicsource\\musicsource{songfolder[5:]}\\music{songfolder[5:]}.awb")
+        
+        with open("./source/data/music.json", encoding="utf-8") as file:
+                songsinfo = json.loads(file.read())
+
+        for songinfo in songsinfo:
+            if songinfo["title_sort"] == song_sortname:
+                song_image = songinfo["image_url"]
+        
+        print(song_image)
+        # shutil.copyfile(os.path.join("./source/jacket/", song_image), os.path.join(args[1], f'{songfolder}/song.jpg'))
+        urlr.urlretrieve("https://ongeki-net.com/ongeki-mobile/img/music/"+song_image, os.path.join(args[1], f'{songfolder}/jacket.png'))
+        
+        
                 
-                # Lane section conversion
-                if current == "lane":
-                    if stype(lline[0]) == "WL":
-                        chart+=f"WL {lline[2]} {lline[3]} {lline[4]}\n"
-                    elif stype(lline[0]) == "WR":
-                        chart+=f"WR {lline[2]} {lline[3]} {lline[4]}\n"
-                    
-                    elif stype(lline[0]) == "LL":
-                        chart+=f"LL {lline[2]} {lline[3]} {lline[4]}\n"
-                    elif stype(lline[0]) == "LC":
-                        chart+=f"LC {lline[2]} {lline[3]} {lline[4]}\n"
-                    elif stype(lline[0]) == "LR":
-                        chart+=f"LR {lline[2]} {lline[3]} {lline[4]}\n"
-                
-                # Note section conversion
-                elif current == "notes":
-                    if lline[0] == "TAP":
-                        chart+=f"NT {lline[2]} {lline[3]} {lline[4]}\n"
-                    elif lline[0] == "CTP":
-                        chart+=f"CT {lline[2]} {lline[3]} {lline[4]}\n"
-                    
-                    elif lline[0] == "HLD":
-                        chart+=f"NH {lline[2]} {lline[3]} {lline[4]} {lline[6]} {lline[7]} {lline[8]}\n"
-                    elif lline[0] == "CHD":
-                        chart+=f"CH {lline[2]} {lline[3]} {lline[4]} {lline[6]} {lline[7]} {lline[8]}\n"
-                
-                # Flick section conversion
-                elif current == "flick":
-                    if lline[0] == "FLK":
-                        chart+=f"NF {lline[1]} {lline[2]} {lline[3]} {lline[4]}\n"
-                    if lline[0] == "CFK":
-                        chart+=f"CF {lline[1]} {lline[2]} {lline[3]} {lline[4]}\n"
-                        
-                #Bell section conversion
-                elif current == "bell":
-                    if lline[0] == "BEL":
-                        chart+=f"BE {lline[1]} {lline[2]} {lline[3]}\n"
-                        
-                #Bullet section conversion
-                elif current == "bullet":
-                    if lline[0] == "BLT":
-                        chart+=f"BU {lline[2]} {lline[3]} {lline[4]}\n"
-                    
-    print("\n"+chart)
-                
-    
 if __name__ == "__main__":
     main()
