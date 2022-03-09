@@ -63,6 +63,9 @@ def main():
         songfolder = songs[selection]
         
         folder = os.path.join("./source/music", songfolder)
+
+        if not os.path.isdir(args[1]): os.mkdir(args[1])
+        if not os.path.isdir(os.path.join(args[1], songfolder)): os.mkdir(os.path.join(args[1], songfolder))
         
         charter_e = convert(os.path.join(folder, f"{songfolder[5:]}_00.ogkr"), os.path.join(args[1], f"{songfolder}/song_e.chart"))
         charter_n = convert(os.path.join(folder, f"{songfolder[5:]}_01.ogkr"), os.path.join(args[1], f"{songfolder}/song_n.chart"))
@@ -90,8 +93,6 @@ def main():
         
         tree = ET.ElementTree(chartroot)
         
-        if not os.path.isdir(args[1]): os.mkdir(args[1])
-        if not os.path.isdir(os.path.join(args[1], songfolder)): os.mkdir(os.path.join(args[1], songfolder))
         xmlstr = minidom.parseString(ET.tostring(chartroot)).toprettyxml(indent="    ")
         with open(os.path.join(args[1], f"{songfolder}/song.xml"), "w", encoding="utf-8") as f:
             f.write(xmlstr)
